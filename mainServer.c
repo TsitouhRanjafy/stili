@@ -32,10 +32,10 @@ int main(){
     while(1){
         ssize_t amountReceved = recv(clientSocketFD, buffer, 1024, 0);
         if(amountReceved > 0)
+            buffer[amountReceved] = 0;
             printf("unknow client: %s", buffer);
-        if (amountReceved < 0)
+        if (amountReceved <= 0)
             break;
-        memset(buffer, 0, sizeof(buffer));
     }
 
     close(clientSocketFD);
