@@ -8,9 +8,9 @@
 
 struct AcceptedSocket * acceptIncomingConnection(int serverSocketFD);
 void * receiveAndPrintIncomingData(void * args);
-void startAcceptIncomingConnection(int socketFD);
 void acceptNewConnectionAndReceiveAnPrintItsData(int socketFD);
 void receiveAndPrintIncomingDataOnSeparateThread(struct AcceptedSocket * pSocket);
+void sendReceivedDataToOtherClient(int socketFD, char * buffer, size_t buffer_size);
 
 struct AcceptedSocket {
     int acceptedSocketFD;
@@ -19,17 +19,19 @@ struct AcceptedSocket {
     bool isAcceptedSuccessfully;
 };
 
-void startAcceptIncomingConnection(int socketFD) {
-    while(true){
-        struct AcceptedSocket * clientSocket = acceptIncomingConnection(socketFD);
-        receiveAndPrintIncomingDataOnSeparateThread(clientSocket);
-    }
-}
+struct AcceptedSocket acceptedSocket[10];
+int acceptedSocketCount = 0;
+
 
 void acceptNewConnectionAndReceiveAnPrintItsData(int socketFD){
     while(true){
-        struct AcceptedSocket * clientSocket = acceptIncomingConnection(socketFD);
-        receiveAndPrintIncomingDataOnSeparateThread(clientSocket);
+        printf("waiting a client...\n");
+        if (acceptedSocketCount < 10) {
+            struct AcceptedSocket * clientSocket = acceptIncomingConnection(socketFD);
+            acceptedSocket[acceptedSocketCount++] = *clientSocket;
+            printf("client joined[id: %d]\n", (acceptedSocketCount - 1));
+            receiveAndPrintIncomingDataOnSeparateThread(clientSocket);
+        }
     }
 }
 
@@ -63,13 +65,15 @@ void * receiveAndPrintIncomingData(void * args) {
     char buffer[1024];
     int socketFD = pSocket->acceptedSocketFD;
 
+    char * a = "v";
     while(1){
-        ssize_t amountReceved = recv(socketFD, buffer, 1024, 0);
-        if(amountReceved > 0) {
-            buffer[amountReceved] = 0;
-            printf("unknow client [%zd]: %s", amountReceved, buffer);
+        ssize_t amountReceived = recv(socketFD, buffer, 1024, 0);
+        if(amountReceived > 0) {
+            buffer[amountReceived] = 0;
+            printf("    message[%zd]: %s", amountReceived, buffer);
+            sendReceivedDataToOtherClient(socketFD, buffer, amountReceived);
         }
-        if (amountReceved <= 0)
+        if (amountReceived <= 0)
             break;
     }
 
@@ -77,9 +81,16 @@ void * receiveAndPrintIncomingData(void * args) {
     free(pSocket);
 }
 
+void sendReceivedDataToOtherClient(int socketFD, char * buffer, size_t buffer_size){
+    for (int i = 0; i < acceptedSocketCount; i++) {
+        if (acceptedSocket[i].acceptedSocketFD == socketFD) 
+            continue;
+        send(acceptedSocket[i].acceptedSocketFD, buffer, buffer_size, 0);
+    }
+}
 
 int main(){
-    const int serverSocketFD = createTCPIpv4Socket();
+    int serverSocketFD = createTCPIpv4Socket();
     struct sockaddr_in *serverAddress = createIPv4Address("", 2000);
 
     int result = bind(serverSocketFD, (struct sockaddr *)serverAddress, sizeof(*serverAddress));
@@ -96,9 +107,10 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    startAcceptIncomingConnection(serverSocketFD);
+    acceptNewConnectionAndReceiveAnPrintItsData(serverSocketFD);
 
     shutdown(serverSocketFD, SHUT_RDWR);
     free(serverAddress);
+    printf(" server stoped\n");
     return EXIT_SUCCESS;
 }
