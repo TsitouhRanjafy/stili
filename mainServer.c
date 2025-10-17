@@ -1,8 +1,81 @@
 #include <errno.h>
 #include <unistd.h>
+#include <stdbool.h>
+#include <pthread.h>
 
 #define SOCKETUTIL_IMPLEMENTATION
 #include "lib/socketutil.h"
+
+struct AcceptedSocket * acceptIncomingConnection(int serverSocketFD);
+void * receiveAndPrintIncomingData(void * args);
+void startAcceptIncomingConnection(int socketFD);
+void acceptNewConnectionAndReceiveAnPrintItsData(int socketFD);
+void receiveAndPrintIncomingDataOnSeparateThread(struct AcceptedSocket * pSocket);
+
+struct AcceptedSocket {
+    int acceptedSocketFD;
+    struct sockaddr_in address;
+    int error;
+    bool isAcceptedSuccessfully;
+};
+
+void startAcceptIncomingConnection(int socketFD) {
+    while(true){
+        struct AcceptedSocket * clientSocket = acceptIncomingConnection(socketFD);
+        receiveAndPrintIncomingDataOnSeparateThread(clientSocket);
+    }
+}
+
+void acceptNewConnectionAndReceiveAnPrintItsData(int socketFD){
+    while(true){
+        struct AcceptedSocket * clientSocket = acceptIncomingConnection(socketFD);
+        receiveAndPrintIncomingDataOnSeparateThread(clientSocket);
+    }
+}
+
+struct AcceptedSocket * acceptIncomingConnection(int serverSocketFD) {
+    struct sockaddr_in clientAddress;
+    socklen_t clientAddressSize = sizeof(struct sockaddr_in);
+    int clientSocketFD = accept(serverSocketFD,(struct sockaddr *) &clientAddress, &clientAddressSize);
+
+    struct AcceptedSocket * acceptedSocket = malloc(sizeof(struct AcceptedSocket));
+    if  (acceptedSocket == NULL) {
+        printf("Error on malloc struct acceptedSocket");
+        exit(EXIT_FAILURE);
+    }
+    acceptedSocket->address = clientAddress;
+    acceptedSocket->acceptedSocketFD = clientSocketFD;
+    acceptedSocket->isAcceptedSuccessfully = clientSocketFD > 0;
+    if(!acceptedSocket->isAcceptedSuccessfully)
+        acceptedSocket->error = clientSocketFD;
+
+    return acceptedSocket;
+}
+
+void receiveAndPrintIncomingDataOnSeparateThread(struct AcceptedSocket * pSocket){
+    pthread_t id;
+    pthread_create(&id, NULL, receiveAndPrintIncomingData, pSocket);
+    pthread_detach(id);
+}
+
+void * receiveAndPrintIncomingData(void * args) {
+    struct AcceptedSocket * pSocket = (struct AcceptedSocket *) args;
+    char buffer[1024];
+    int socketFD = pSocket->acceptedSocketFD;
+
+    while(1){
+        ssize_t amountReceved = recv(socketFD, buffer, 1024, 0);
+        if(amountReceved > 0) {
+            buffer[amountReceved] = 0;
+            printf("unknow client [%zd]: %s", amountReceved, buffer);
+        }
+        if (amountReceved <= 0)
+            break;
+    }
+
+    close(socketFD);
+    free(pSocket);
+}
 
 
 int main(){
@@ -23,25 +96,9 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    struct sockaddr_in clientAddress;
-    socklen_t clientAddressSize = sizeof(struct sockaddr_in);
-    int clientSocketFD = accept(serverSocketFD,(struct sockaddr *) &clientAddress, &clientAddressSize);
+    startAcceptIncomingConnection(serverSocketFD);
 
-
-    char buffer[1024];
-    while(1){
-        ssize_t amountReceved = recv(clientSocketFD, buffer, 1024, 0);
-        if(amountReceved > 0)
-            buffer[amountReceved] = 0;
-            printf("unknow client: %s", buffer);
-        if (amountReceved <= 0)
-            break;
-    }
-
-    close(clientSocketFD);
     shutdown(serverSocketFD, SHUT_RDWR);
     free(serverAddress);
     return EXIT_SUCCESS;
 }
-
-
