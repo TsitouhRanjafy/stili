@@ -22,25 +22,47 @@ int main() {
     }
     printf(" connected with success\n");
 
+    
     startListenAndPrintDataOnNewThread(socketFD);
+    
+    /* setup get name */
+    char name[25];
+    printf(" Enter your name[%zu]: ",sizeof(name)); scanf("%s",name);
+    system("clear");
+    
+    /* start chating */
+    char *message = NULL;
+    size_t messageSize = 0;
+    size_t buffer = 1023;
+    char data[buffer];
 
-    char *line = NULL;
-    size_t lineSize = 0;
-    printf(" send a message (type exit())\n");
+    printf(" Welcom to stili %s\n",name);
+start_chting:
+    printf(" Send a message (type exit(), clear())\n");
+    while(getchar() != '\n'){};
     while(1) {
-        printf("\tTsitohaina: ");
-        size_t charCount = getline(&line, &lineSize, stdin);
-        if (strcmp(line, "exit()\n") == 0) {
-            printf("\n Bey Tsitohaina\n");
+        printf("\t%s: ",name); 
+        getline(&message, &messageSize, stdin);
+        if (strcmp(message, "exit()\n") == 0) {
+            printf("\n Bey %s\n",name);
             break;
         }
-        send(socketFD, line, charCount, 0);
+        if (strcmp(message, "clear()\n") == 0){
+            system("clear");
+            goto start_chting;
+        } else {
+            sprintf(data, "%s: %s", name, message);
+            send(socketFD, data, strlen(data), 0);
+        }
+        
     }
 
-        
-    free(line);
+    
     close(socketFD);
     free(address);
+    if(message)
+        free(message);
+    
     return EXIT_SUCCESS;
 }
 
