@@ -1,5 +1,5 @@
 #ifndef SERVER_UTIL
-#define SERVER_UTL
+#define SERVER_UTIL
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -72,6 +72,7 @@ void * receiveAndPrintIncomingData(void * args) {
 
     close(socketFD);
     free(pSocket);
+    return args;
 }
 
 void sendReceivedDataToOtherClient(int socketFD, char * buffer, size_t buffer_size){

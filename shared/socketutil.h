@@ -7,7 +7,7 @@
 */
 
 #ifndef SOCKETUTIL_H
-#define SCOKETUTIL_H
+#define SOCKETUTIL_H
 
 #include <stdio.h>
 #include <stdlib.h>
